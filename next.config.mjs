@@ -22,11 +22,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  experimental: {
-    webpackBuildWorker: true,
-    parallelServerBuildTraces: true,
-    parallelServerCompiles: true,
-  },
   webpack: (config) => {
     // Add WASM support
     config.experiments = {
@@ -41,14 +36,6 @@ const nextConfig = {
     })
 
     return config
-  },
-  rewrites: async () => {
-    return [
-      {
-        source: '/api/detect',
-        destination: 'http://localhost:8000/detect',  // This will be our Python server endpoint
-      },
-    ]
   },
 }
 

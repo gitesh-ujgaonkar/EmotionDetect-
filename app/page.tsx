@@ -7,21 +7,21 @@ import { Camera, Upload, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { detectEmotion } from "@/app/actions"
 import LoadingAnimation from "@/components/loading-animation"
 import ProgressBar from "@/components/progress-bar"
 import EmotionDisplay from "@/components/emotion-display"
 import { ModeToggle } from "@/components/mode-toggle"
+import { useEmotionDetector } from "./actions"
 
 export default function Home() {
   const [image, setImage] = useState<string | null>(null)
   const [capturedImage, setCapturedImage] = useState<string | null>(null)
   const [result, setResult] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState(0)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [activeTab, setActiveTab] = useState("upload")
+  const { detectEmotions, isLoading } = useEmotionDetector()
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -87,16 +87,12 @@ export default function Home() {
     setImage(null)
     setCapturedImage(null)
     setResult(null)
-    setLoading(false)
     setProgress(0)
   }
 
   const processImage = async () => {
     const imageToProcess = image || capturedImage
     if (!imageToProcess) return
-
-    setLoading(true)
-    setProgress(0)
 
     try {
       // Simulate progress updates
@@ -107,17 +103,13 @@ export default function Home() {
         })
       }, 500)
 
-      const result = await detectEmotion(imageToProcess)
+      const result = await detectEmotions(imageToProcess)
 
       clearInterval(progressInterval)
       setProgress(100)
       setResult(result)
     } catch (error) {
       console.error("Error processing image:", error)
-    } finally {
-      setTimeout(() => {
-        setLoading(false)
-      }, 500) // Keep loading state for a moment after completion for smooth transition
     }
   }
 
@@ -191,13 +183,13 @@ export default function Home() {
         <div className="mt-6 flex flex-col gap-4">
           <Button
             onClick={processImage}
-            disabled={loading || (!image && !capturedImage)}
+            disabled={isLoading || (!image && !capturedImage)}
             className="bg-purple-600 hover:bg-purple-700 transition-all duration-300 transform hover:scale-105"
           >
             Detect Emotions
           </Button>
 
-          {loading && (
+          {isLoading && (
             <div className="mt-4">
               <LoadingAnimation />
               <ProgressBar progress={progress} />
@@ -215,7 +207,7 @@ export default function Home() {
         </div>
       </Card>
 
-      {result && !loading && (
+      {result && !isLoading && (
         <EmotionDisplay imageUrl={image || capturedImage || ""} result={result} onReset={resetState} />
       )}
     </main>
