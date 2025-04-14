@@ -11,17 +11,17 @@ import LoadingAnimation from "@/components/loading-animation"
 import ProgressBar from "@/components/progress-bar"
 import EmotionDisplay from "@/components/emotion-display"
 import { ModeToggle } from "@/components/mode-toggle"
-import { useEmotionDetector } from "./actions"
+import { detectEmotion } from "./actions"
 
 export default function Home() {
   const [image, setImage] = useState<string | null>(null)
   const [capturedImage, setCapturedImage] = useState<string | null>(null)
   const [result, setResult] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(false)
   const [progress, setProgress] = useState(0)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [activeTab, setActiveTab] = useState("upload")
-  const { detectEmotions, isLoading } = useEmotionDetector()
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -94,6 +94,9 @@ export default function Home() {
     const imageToProcess = image || capturedImage
     if (!imageToProcess) return
 
+    setIsLoading(true)
+    setProgress(0)
+
     try {
       // Simulate progress updates
       const progressInterval = setInterval(() => {
@@ -103,13 +106,19 @@ export default function Home() {
         })
       }, 500)
 
-      const result = await detectEmotions(imageToProcess)
+      const result = await detectEmotion(imageToProcess)
 
       clearInterval(progressInterval)
       setProgress(100)
       setResult(result)
     } catch (error) {
       console.error("Error processing image:", error)
+      setResult({
+        predictions: [],
+        error: error instanceof Error ? error.message : "An unexpected error occurred"
+      })
+    } finally {
+      setIsLoading(false)
     }
   }
 
