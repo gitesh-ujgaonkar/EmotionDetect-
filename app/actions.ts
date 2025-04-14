@@ -13,19 +13,28 @@ interface Prediction {
 
 export async function detectEmotion(imageBase64: string) {
   try {
+    console.log("Starting emotion detection...")
     // Remove the data URL prefix to get just the base64 data
     const base64Data = imageBase64.split(",")[1]
+    console.log("Base64 data length:", base64Data.length)
 
-    // Call the Hugging Face API
+    const apiKey = process.env.HUGGING_FACE_API_KEY
+    if (!apiKey) {
+      console.error("HUGGING_FACE_API_KEY is not set!")
+      throw new Error("API key not configured")
+    }
+
+    console.log("Making API request to Hugging Face...")
     const response = await fetch("https://api-inference.huggingface.co/models/giteshujgaonkar/yolov8-emotion-model", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.HUGGING_FACE_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({ inputs: { image: base64Data } }),
     })
 
+    console.log("API Response status:", response.status)
     if (!response.ok) {
       const errorText = await response.text()
       console.error("Hugging Face API error:", errorText)
@@ -34,12 +43,24 @@ export async function detectEmotion(imageBase64: string) {
 
     const data = await response.json()
     console.log("Raw API response:", JSON.stringify(data, null, 2))
+    console.log("Response type:", typeof data)
+    console.log("Is array:", Array.isArray(data))
+    if (Array.isArray(data)) {
+      console.log("Array length:", data.length)
+      data.forEach((item, index) => {
+        console.log(`Item ${index}:`, JSON.stringify(item, null, 2))
+        console.log("Item box:", item.box)
+        console.log("Item label:", item.label)
+        console.log("Item score:", item.score)
+      })
+    }
 
     // Transform the YOLOv8 response to our expected format
     const predictions: Prediction[] = []
     
     if (Array.isArray(data)) {
       data.forEach((item) => {
+        console.log("Processing item:", JSON.stringify(item, null, 2))
         // YOLOv8 format typically has boxes in [x1, y1, x2, y2] format
         if (item.box && Array.isArray(item.box) && item.box.length === 4) {
           predictions.push({
@@ -52,6 +73,8 @@ export async function detectEmotion(imageBase64: string) {
             label: item.label || "Unknown",
             score: item.score || 0,
           })
+        } else {
+          console.log("Invalid box format:", item.box)
         }
       })
     }
