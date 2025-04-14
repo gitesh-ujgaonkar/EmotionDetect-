@@ -19,24 +19,6 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  images: {
-    unoptimized: true,
-  },
-  webpack: (config) => {
-    // Add WASM support
-    config.experiments = {
-      ...config.experiments,
-      asyncWebAssembly: true,
-    }
-
-    // Add rule for ONNX files
-    config.module.rules.push({
-      test: /\.onnx$/,
-      type: 'asset/resource',
-    })
-
-    return config
-  },
 }
 
 if (userConfig) {

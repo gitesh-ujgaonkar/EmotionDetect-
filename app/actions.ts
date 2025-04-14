@@ -1,4 +1,4 @@
-"use server"
+"use client"
 
 interface Prediction {
   box: {
@@ -11,8 +11,15 @@ interface Prediction {
   score: number
 }
 
+// Get API key from environment variable
+const API_KEY = process.env.NEXT_PUBLIC_HUGGING_FACE_API_KEY
+
 export async function detectEmotion(imageBase64: string) {
   try {
+    if (!API_KEY) {
+      throw new Error("API key not configured. Please set NEXT_PUBLIC_HUGGING_FACE_API_KEY in your environment variables.")
+    }
+
     // Convert base64 to blob
     const base64Data = imageBase64.split(',')[1];
     const byteCharacters = atob(base64Data);
@@ -36,7 +43,7 @@ export async function detectEmotion(imageBase64: string) {
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${process.env.HUGGING_FACE_API_KEY}`
+          Authorization: `Bearer ${API_KEY}`
         },
         body: formData
       }
