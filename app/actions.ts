@@ -1,5 +1,16 @@
 "use server"
 
+interface Prediction {
+  box: {
+    x1: number
+    y1: number
+    x2: number
+    y2: number
+  }
+  label: string
+  score: number
+}
+
 export async function detectEmotion(imageBase64: string) {
   try {
     // Remove the data URL prefix to get just the base64 data
@@ -24,35 +35,25 @@ export async function detectEmotion(imageBase64: string) {
     const data = await response.json()
     console.log("Raw API response:", JSON.stringify(data, null, 2))
 
-    // Transform the Hugging Face response to our expected format
-    let predictions = []
+    // Transform the YOLOv8 response to our expected format
+    const predictions: Prediction[] = []
     
     if (Array.isArray(data)) {
-      predictions = data.map((item) => {
-        // Log each item to see its structure
-        console.log("Processing item:", JSON.stringify(item, null, 2))
-        
-        // Handle different possible response formats
-        const box = item.box || item.bbox || item.bounding_box
-        const label = item.label || item.class || item.emotion
-        const score = item.score || item.confidence || item.probability
-
-        if (!box || !label || score === undefined) {
-          console.error("Invalid item format:", item)
-          return null
+      data.forEach((item) => {
+        // YOLOv8 format typically has boxes in [x1, y1, x2, y2] format
+        if (item.box && Array.isArray(item.box) && item.box.length === 4) {
+          predictions.push({
+            box: {
+              x1: item.box[0] / 100, // Normalize coordinates
+              y1: item.box[1] / 100,
+              x2: item.box[2] / 100,
+              y2: item.box[3] / 100,
+            },
+            label: item.label || "Unknown",
+            score: item.score || 0,
+          })
         }
-
-        return {
-          box: {
-            x1: (box.xmin || box.x1 || box.left) / 100,
-            y1: (box.ymin || box.y1 || box.top) / 100,
-            x2: (box.xmax || box.x2 || box.right) / 100,
-            y2: (box.ymax || box.y2 || box.bottom) / 100,
-          },
-          label: label,
-          score: score,
-        }
-      }).filter(Boolean) // Remove any null predictions
+      })
     }
 
     console.log("Transformed predictions:", JSON.stringify(predictions, null, 2))
