@@ -22,27 +22,49 @@ export async function detectEmotion(imageBase64: string) {
     }
 
     const data = await response.json()
+    console.log("Raw API response:", JSON.stringify(data, null, 2))
 
     // Transform the Hugging Face response to our expected format
-    // The exact format depends on the model's output, but we'll adapt it to our frontend needs
-    const predictions = Array.isArray(data)
-      ? data.map((item) => ({
+    let predictions = []
+    
+    if (Array.isArray(data)) {
+      predictions = data.map((item) => {
+        // Log each item to see its structure
+        console.log("Processing item:", JSON.stringify(item, null, 2))
+        
+        // Handle different possible response formats
+        const box = item.box || item.bbox || item.bounding_box
+        const label = item.label || item.class || item.emotion
+        const score = item.score || item.confidence || item.probability
+
+        if (!box || !label || score === undefined) {
+          console.error("Invalid item format:", item)
+          return null
+        }
+
+        return {
           box: {
-            x1: item.box.xmin / 100,
-            y1: item.box.ymin / 100,
-            x2: item.box.xmax / 100,
-            y2: item.box.ymax / 100,
+            x1: (box.xmin || box.x1 || box.left) / 100,
+            y1: (box.ymin || box.y1 || box.top) / 100,
+            x2: (box.xmax || box.x2 || box.right) / 100,
+            y2: (box.ymax || box.y2 || box.bottom) / 100,
           },
-          label: item.label,
-          score: item.score,
-        }))
-      : []
+          label: label,
+          score: score,
+        }
+      }).filter(Boolean) // Remove any null predictions
+    }
+
+    console.log("Transformed predictions:", JSON.stringify(predictions, null, 2))
+
+    if (predictions.length === 0) {
+      console.log("No valid predictions found in the response")
+      throw new Error("No valid predictions found in the response")
+    }
 
     return { predictions }
   } catch (error) {
     console.error("Error in emotion detection:", error)
-
-    // If the API call fails, return mock data as fallback
     console.log("Using fallback mock data due to API error")
     return mockEmotionDetection()
   }
