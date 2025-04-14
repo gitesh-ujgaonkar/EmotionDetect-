@@ -3,16 +3,37 @@
 import { useEffect, useRef } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { RefreshCw } from "lucide-react"
+import { RefreshCw, AlertCircle } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface EmotionDisplayProps {
   imageUrl: string
-  result: any
+  result: {
+    predictions: any[]
+    error: string | null
+  }
   onReset: () => void
 }
 
 export default function EmotionDisplay({ imageUrl, result, onReset }: EmotionDisplayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  // If there's an error, display it
+  if (result.error) {
+    return (
+      <Card className="p-6 border-2 border-red-500/20 shadow-lg animate-fadeIn">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{result.error}</AlertDescription>
+        </Alert>
+        <div className="flex justify-center mt-4">
+          <Button onClick={onReset} variant="outline" className="border-red-500 hover:bg-red-500/10">
+            <RefreshCw className="mr-2 h-4 w-4" /> Try Again
+          </Button>
+        </div>
+      </Card>
+    )
+  }
 
   // Emotion colors for bounding boxes
   const emotionColors: Record<string, string> = {

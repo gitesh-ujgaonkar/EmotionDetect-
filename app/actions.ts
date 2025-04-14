@@ -13,99 +13,41 @@ interface Prediction {
 
 export async function detectEmotion(imageBase64: string) {
   try {
-    console.log("Starting emotion detection...")
-    // Remove the data URL prefix to get just the base64 data
-    const base64Data = imageBase64.split(",")[1]
-    console.log("Base64 data length:", base64Data.length)
+    console.log("Starting emotion detection with YOLOv8...")
 
-    const apiKey = process.env.HUGGING_FACE_API_KEY
-    if (!apiKey) {
-      console.error("HUGGING_FACE_API_KEY is not set!")
-      throw new Error("API key not configured")
-    }
-
-    // Using a different endpoint format for YOLOv8
-    console.log("Making API request...")
-    const response = await fetch("https://api-inference.huggingface.co/models/giteshujgaonkar/yolov8-emotion-model", {
+    // Call our local YOLOv8 endpoint
+    const response = await fetch("/api/detect", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        inputs: base64Data,
-        parameters: {
-          confidence: 0.3,
-          iou_threshold: 0.5,
-        },
+        image: imageBase64,
       }),
     })
 
-    console.log("API Response status:", response.status)
-    const responseText = await response.text()
-    console.log("Raw response text:", responseText)
-
     if (!response.ok) {
-      console.error("API error:", responseText)
-      throw new Error(`API request failed with status ${response.status}: ${responseText}`)
+      const errorText = await response.text()
+      throw new Error(`Detection failed: ${errorText}`)
     }
 
-    let data
-    try {
-      data = JSON.parse(responseText)
-    } catch (e) {
-      console.error("Failed to parse JSON response:", e)
-      throw new Error("Invalid response format")
-    }
-
-    console.log("Parsed response:", data)
-
-    // Transform the YOLOv8 response to our expected format
-    const predictions: Prediction[] = []
+    const result = await response.json()
     
-    if (Array.isArray(data)) {
-      data.forEach((detection: any) => {
-        try {
-          // Extract coordinates and scores
-          const [x1, y1, x2, y2] = detection.box
-          const label = detection.label
-          const score = detection.score
-
-          predictions.push({
-            box: {
-              x1: x1,
-              y1: y1,
-              x2: x2,
-              y2: y2,
-            },
-            label,
-            score,
-          })
-        } catch (e) {
-          console.error("Failed to process detection:", detection, e)
-        }
-      })
+    if (result.error) {
+      throw new Error(result.error)
     }
 
-    console.log("Final predictions:", predictions)
-
-    if (predictions.length === 0) {
-      console.log("No valid predictions found in the response")
-      throw new Error("No valid predictions found in the response")
+    if (!result.predictions || result.predictions.length === 0) {
+      throw new Error("No emotions detected in the image. Please try with a different image.")
     }
 
-    return { predictions }
+    return result
   } catch (error) {
     console.error("Error in emotion detection:", error)
-    // Log the full error for debugging
-    if (error instanceof Error) {
-      console.error("Error details:", {
-        message: error.message,
-        stack: error.stack,
-      })
+    return {
+      predictions: [],
+      error: error instanceof Error ? error.message : "An unexpected error occurred"
     }
-    console.log("Using fallback mock data due to API error")
-    return mockEmotionDetection()
   }
 }
 

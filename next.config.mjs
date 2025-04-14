@@ -27,6 +27,29 @@ const nextConfig = {
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
   },
+  webpack: (config) => {
+    // Add WASM support
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
+    }
+
+    // Add rule for ONNX files
+    config.module.rules.push({
+      test: /\.onnx$/,
+      type: 'asset/resource',
+    })
+
+    return config
+  },
+  rewrites: async () => {
+    return [
+      {
+        source: '/api/detect',
+        destination: 'http://localhost:8000/detect',  // This will be our Python server endpoint
+      },
+    ]
+  },
 }
 
 if (userConfig) {
