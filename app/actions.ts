@@ -24,62 +24,70 @@ export async function detectEmotion(imageBase64: string) {
       throw new Error("API key not configured")
     }
 
-    console.log("Making API request to Hugging Face...")
+    // Using a different endpoint format for YOLOv8
+    console.log("Making API request...")
     const response = await fetch("https://api-inference.huggingface.co/models/giteshujgaonkar/yolov8-emotion-model", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify({ inputs: { image: base64Data } }),
+      body: JSON.stringify({
+        inputs: base64Data,
+        parameters: {
+          confidence: 0.3,
+          iou_threshold: 0.5,
+        },
+      }),
     })
 
     console.log("API Response status:", response.status)
+    const responseText = await response.text()
+    console.log("Raw response text:", responseText)
+
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error("Hugging Face API error:", errorText)
-      throw new Error(`API request failed with status ${response.status}: ${errorText}`)
+      console.error("API error:", responseText)
+      throw new Error(`API request failed with status ${response.status}: ${responseText}`)
     }
 
-    const data = await response.json()
-    console.log("Raw API response:", JSON.stringify(data, null, 2))
-    console.log("Response type:", typeof data)
-    console.log("Is array:", Array.isArray(data))
-    if (Array.isArray(data)) {
-      console.log("Array length:", data.length)
-      data.forEach((item, index) => {
-        console.log(`Item ${index}:`, JSON.stringify(item, null, 2))
-        console.log("Item box:", item.box)
-        console.log("Item label:", item.label)
-        console.log("Item score:", item.score)
-      })
+    let data
+    try {
+      data = JSON.parse(responseText)
+    } catch (e) {
+      console.error("Failed to parse JSON response:", e)
+      throw new Error("Invalid response format")
     }
+
+    console.log("Parsed response:", data)
 
     // Transform the YOLOv8 response to our expected format
     const predictions: Prediction[] = []
     
     if (Array.isArray(data)) {
-      data.forEach((item) => {
-        console.log("Processing item:", JSON.stringify(item, null, 2))
-        // YOLOv8 format typically has boxes in [x1, y1, x2, y2] format
-        if (item.box && Array.isArray(item.box) && item.box.length === 4) {
+      data.forEach((detection: any) => {
+        try {
+          // Extract coordinates and scores
+          const [x1, y1, x2, y2] = detection.box
+          const label = detection.label
+          const score = detection.score
+
           predictions.push({
             box: {
-              x1: item.box[0] / 100, // Normalize coordinates
-              y1: item.box[1] / 100,
-              x2: item.box[2] / 100,
-              y2: item.box[3] / 100,
+              x1: x1,
+              y1: y1,
+              x2: x2,
+              y2: y2,
             },
-            label: item.label || "Unknown",
-            score: item.score || 0,
+            label,
+            score,
           })
-        } else {
-          console.log("Invalid box format:", item.box)
+        } catch (e) {
+          console.error("Failed to process detection:", detection, e)
         }
       })
     }
 
-    console.log("Transformed predictions:", JSON.stringify(predictions, null, 2))
+    console.log("Final predictions:", predictions)
 
     if (predictions.length === 0) {
       console.log("No valid predictions found in the response")
@@ -89,6 +97,13 @@ export async function detectEmotion(imageBase64: string) {
     return { predictions }
   } catch (error) {
     console.error("Error in emotion detection:", error)
+    // Log the full error for debugging
+    if (error instanceof Error) {
+      console.error("Error details:", {
+        message: error.message,
+        stack: error.stack,
+      })
+    }
     console.log("Using fallback mock data due to API error")
     return mockEmotionDetection()
   }
